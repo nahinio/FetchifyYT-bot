@@ -8,13 +8,18 @@ import org.telegram.telegrambots.meta.api.objects.*;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import org.telegram.telegrambots.meta.api.objects.InputFile;
 
-import java.io.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.IOException;
 
 public class MyBot extends TelegramLongPollingBot {
 
-    private final String BOT_TOKEN = System.getenv("BOT_TOKEN"); // secure
+    private final String BOT_TOKEN = System.getenv("BOT_TOKEN");
     private final String BOT_USERNAME = "FetchifyYT_bot";
 
     @Override
@@ -66,7 +71,7 @@ public class MyBot extends TelegramLongPollingBot {
 
             sendMessage(chatId, "⬇️ Downloading...");
 
-            File video = downloadVideo(url, formatId);
+            java.io.File video = downloadVideo(url, formatId);
             if (video == null) {
                 sendMessage(chatId, "❌ Failed to download.");
                 return;
@@ -137,7 +142,7 @@ public class MyBot extends TelegramLongPollingBot {
         return filteredFormats;
     }
 
-    private File downloadVideo(String url, String formatId) {
+    private java.io.File downloadVideo(String url, String formatId) {
         try {
             String filename = "video.mp4";
             ProcessBuilder pb = new ProcessBuilder("yt-dlp", "-f", formatId, "-o", filename, url);
@@ -145,7 +150,7 @@ public class MyBot extends TelegramLongPollingBot {
             Process process = pb.start();
             process.waitFor();
 
-            File file = new File(filename);
+            java.io.File file = new java.io.File(filename);
             if (file.exists()) return file;
         } catch (Exception e) {
             e.printStackTrace();
