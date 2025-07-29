@@ -1,154 +1,164 @@
 package com.example;
 
-import com.google.gson.*;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
-import org.telegram.telegrambots.meta.api.methods.send.SendDocument;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.objects.*;
+import org.telegram.telegrambots.meta.api.methods.send.SendDocument;
+import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-import org.telegram.telegrambots.meta.api.objects.InputFile;
 
 import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.io.IOException;
-import java.util.*;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MyBot extends TelegramLongPollingBot {
 
-    private final String BOT_TOKEN = System.getenv("BOT_TOKEN");
-    private final String BOT_USERNAME = "FetchifyYT_bot";
+    @Override
+    public String getBotUsername() {
+        return System.getenv("BOT_USERNAME");
+    }
+
+    @Override
+    public String getBotToken() {
+        return System.getenv("BOT_TOKEN");
+    }
 
     @Override
     public void onUpdateReceived(Update update) {
         if (update.hasMessage() && update.getMessage().hasText()) {
-            String text = update.getMessage().getText();
+            String messageText = update.getMessage().getText();
             long chatId = update.getMessage().getChatId();
 
-            if (text.contains("youtube.com") || text.contains("youtu.be")) {
-                sendMessage(chatId, "🎬 Choose format:");
-
-                SendMessage msg = new SendMessage();
-                msg.setChatId(chatId);
-                msg.setText("Select a download option:");
-
-                InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
-                List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
-
-                buttons.add(Collections.singletonList(createButton("🔝 Best Quality (≤1080p)", text + "|best")));
-                buttons.add(Collections.singletonList(createButton("720p", text + "|720p")));
-                buttons.add(Collections.singletonList(createButton("🎵 MP3", text + "|mp3")));
-
-                markup.setKeyboard(buttons);
-                msg.setReplyMarkup(markup);
-
-                try {
-                    execute(msg);
-                } catch (TelegramApiException e) {
-                    e.printStackTrace();
-                }
-
+            if (messageText.startsWith("https://") || messageText.startsWith("http://")) {
+                sendFormatOptions(chatId, messageText);
             } else {
-                sendMessage(chatId, "⚠️ Please send a valid YouTube URL.");
+                sendTextMessage(chatId, "Send a valid YouTube link.");
             }
-
         } else if (update.hasCallbackQuery()) {
-            CallbackQuery query = update.getCallbackQuery();
-            String[] data = query.getData().split("\\|");
-            String url = data[0];
-            String option = data[1];
-            long chatId = query.getMessage().getChatId();
-
-            sendMessage(chatId, "⬇️ Downloading...");
-
-            java.io.File file = downloadWithYtDlp(url, option);
-            if (file == null) {
-                sendMessage(chatId, "❌ Download failed or file too large.");
-                return;
-            }
-
-            SendDocument sendDoc = new SendDocument();
-            sendDoc.setChatId(chatId);
-            sendDoc.setDocument(new InputFile(file));
-
-            try {
-                execute(sendDoc);
-                file.delete();
-            } catch (TelegramApiException e) {
-                sendMessage(chatId, "❌ Could not send file.");
-                e.printStackTrace();
+            String data = update.getCallbackQuery().getData();
+            String[] parts = data.split("\|", 2);
+            if (parts.length == 2) {
+                String option = parts[0];
+                String url = parts[1];
+                long chatId = update.getCallbackQuery().getMessage().getChatId();
+                handleDownloadOption(chatId, url, option);
             }
         }
     }
 
-    private InlineKeyboardButton createButton(String text, String data) {
-        InlineKeyboardButton button = new InlineKeyboardButton();
-        button.setText(text);
-        button.setCallbackData(data);
-        return button;
-    }
+    private void sendFormatOptions(long chatId, String url) {
+        List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
 
-    private void sendMessage(long chatId, String text) {
-        SendMessage msg = new SendMessage();
-        msg.setChatId(chatId);
-        msg.setText(text);
+        buttons.add(List.of(InlineKeyboardButton.builder().text("Best (1080p)").callbackData("best|" + url).build()));
+        buttons.add(List.of(InlineKeyboardButton.builder().text("720p").callbackData("720|" + url).build()));
+        buttons.add(List.of(InlineKeyboardButton.builder().text("MP3").callbackData("mp3|" + url).build()));
+
+        InlineKeyboardMarkup markup = InlineKeyboardMarkup.builder().keyboard(buttons).build();
+
+        SendMessage message = SendMessage.builder()
+                .chatId(String.valueOf(chatId))
+                .text("Choose a format to download:")
+                .replyMarkup(markup)
+                .build();
+
         try {
-            execute(msg);
+            execute(message);
         } catch (TelegramApiException e) {
             e.printStackTrace();
         }
     }
 
-    private java.io.File downloadWithYtDlp(String url, String quality) {
+    private void handleDownloadOption(long chatId, String url, String option) {
+        sendTextMessage(chatId, "Downloading " + option + " version. Please wait...");
+
+        java.io.File file = downloadWithYtDlp(url, option);
+        if (file == null) {
+            sendTextMessage(chatId, "Failed to download. The format may not be available or the file is too large.");
+            return;
+        }
+
+        SendDocument document = SendDocument.builder()
+                .chatId(String.valueOf(chatId))
+                .document(new org.telegram.telegrambots.meta.api.objects.InputFile(file))
+                .build();
+
         try {
-            String filename = quality.equals("mp3") ? "audio.%(ext)s" : "video.%(ext)s";
-            List<String> command = new ArrayList<>();
-            command.add("yt-dlp");
+            execute(document);
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+            sendTextMessage(chatId, "Error sending file: " + e.getMessage());
+        }
 
-            if (quality.equals("mp3")) {
-                command.addAll(List.of("-x", "--audio-format", "mp3"));
-            } else if (quality.equals("720p")) {
-                command.add("-f");
-                command.add("bestvideo[height<=720]+bestaudio/best[height<=720]");
-            } else {
-                command.add("-f");
-                command.add("bestvideo[height<=1080]+bestaudio/best[height<=1080]");
-            }
+        file.delete();
+    }
 
-            command.add("-o");
-            command.add(filename);
-            command.add(url);
+    private java.io.File downloadWithYtDlp(String url, String option) {
+        String format;
+        switch (option) {
+            case "best":
+                format = "bestvideo[height<=1080]+bestaudio/best[height<=1080]";
+                break;
+            case "720":
+                format = "bestvideo[height<=720]+bestaudio/best[height<=720]";
+                break;
+            case "mp3":
+                format = "bestaudio";
+                break;
+            default:
+                return null;
+        }
 
+        String output = "output.%(ext)s";
+        List<String> command = new ArrayList<>();
+        command.add("yt-dlp");
+        command.add("-f");
+        command.add(format);
+        command.add("-o");
+        command.add(output);
+
+        if (option.equals("mp3")) {
+            command.add("--extract-audio");
+            command.add("--audio-format");
+            command.add("mp3");
+        }
+
+        command.add(url);
+
+        try {
             ProcessBuilder pb = new ProcessBuilder(command);
             pb.redirectErrorStream(true);
             Process process = pb.start();
-
             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
             String line;
             while ((line = reader.readLine()) != null) {
                 System.out.println(line);
             }
-
-            process.waitFor();
-
-            String outFile = quality.equals("mp3") ? "audio.mp3" : "video.mp4";
-            java.io.File file = new java.io.File(outFile);
-            return file.exists() ? file : null;
-
-        } catch (Exception e) {
+            int exitCode = process.waitFor();
+            if (exitCode == 0) {
+                String extension = option.equals("mp3") ? "mp3" : "mp4";
+                java.io.File downloadedFile = new java.io.File("output." + extension);
+                return downloadedFile.exists() ? downloadedFile : null;
+            }
+        } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         }
+
         return null;
     }
 
-    @Override
-    public String getBotUsername() {
-        return BOT_USERNAME;
-    }
+    private void sendTextMessage(long chatId, String text) {
+        SendMessage message = SendMessage.builder()
+                .chatId(String.valueOf(chatId))
+                .text(text)
+                .build();
 
-    @Override
-    public String getBotToken() {
-        return BOT_TOKEN;
+        try {
+            execute(message);
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+        }
     }
 }
