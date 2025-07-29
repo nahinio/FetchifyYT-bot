@@ -1,18 +1,23 @@
 FROM eclipse-temurin:17-jdk
 
-# Install yt-dlp and ffmpeg
+# Install ffmpeg and maven
 RUN apt-get update && \
-    apt-get install -y python3-pip ffmpeg maven && \
-    pip install yt-dlp
+    apt-get install -y ffmpeg maven
 
-# Set working directory
-WORKDIR /app
+# Set working directory to repo root folder
+WORKDIR /FetchifyYT-bot
 
-# Copy project files
-COPY . /app
+# Copy all project files including yt-dlp binary
+COPY . /FetchifyYT-bot
+
+# Make yt-dlp executable
+RUN chmod +x ./yt-dlp
+
+# Add working directory to PATH so yt-dlp can be called directly
+ENV PATH="/FetchifyYT-bot:${PATH}"
 
 # Build the project using Maven
 RUN mvn clean package
 
-# Run the application
+# Run the Java application
 CMD ["java", "-jar", "target/youtube-telegram-bot-1.0-jar-with-dependencies.jar"]

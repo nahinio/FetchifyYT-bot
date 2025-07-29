@@ -111,7 +111,7 @@ public class MyBot extends TelegramLongPollingBot {
 
         String output = "output.%(ext)s";
         List<String> command = new ArrayList<>();
-        command.add("yt-dlp");
+        command.add("/FetchifyYT-bot/yt-dlp");
         command.add("-f");
         command.add(format);
         command.add("-o");
