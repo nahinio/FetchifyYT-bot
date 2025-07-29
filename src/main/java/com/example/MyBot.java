@@ -7,7 +7,6 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -39,7 +38,7 @@ public class MyBot extends TelegramLongPollingBot {
             }
         } else if (update.hasCallbackQuery()) {
             String data = update.getCallbackQuery().getData();
-            String[] parts = data.split("\|", 2);
+            String[] parts = data.split("\\|", 2);
             if (parts.length == 2) {
                 String option = parts[0];
                 String url = parts[1];
@@ -51,7 +50,6 @@ public class MyBot extends TelegramLongPollingBot {
 
     private void sendFormatOptions(long chatId, String url) {
         List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
-
         buttons.add(List.of(InlineKeyboardButton.builder().text("Best (1080p)").callbackData("best|" + url).build()));
         buttons.add(List.of(InlineKeyboardButton.builder().text("720p").callbackData("720|" + url).build()));
         buttons.add(List.of(InlineKeyboardButton.builder().text("MP3").callbackData("mp3|" + url).build()));
