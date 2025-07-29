@@ -1,16 +1,13 @@
-# Build stage
-FROM maven:3.9.4-eclipse-temurin-17 as build
-WORKDIR /app
-COPY . .
-RUN mvn clean package
-
-# Run stage
 FROM eclipse-temurin:17-jdk
+
+# Install yt-dlp and ffmpeg
 RUN apt-get update && \
     apt-get install -y python3-pip ffmpeg && \
     pip install yt-dlp
 
 WORKDIR /app
-COPY --from=build /app/target/youtube-telegram-bot-1.0.jar .
+COPY . /app
 
-CMD ["java", "-jar", "youtube-telegram-bot-1.0.jar"]
+RUN ./mvnw package
+
+CMD ["java", "-jar", "target/youtube-telegram-bot-1.0-jar-with-dependencies.jar"]
