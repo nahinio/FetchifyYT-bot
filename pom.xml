@@ -1,6 +1,6 @@
 <project>
   <modelVersion>4.0.0</modelVersion>
-  <groupId>com.najib.bot</groupId>
+  <groupId>com.example</groupId>
   <artifactId>youtube-telegram-bot</artifactId>
   <version>1.0</version>
 
@@ -8,6 +8,11 @@
     <dependency>
       <groupId>org.telegram</groupId>
       <artifactId>telegrambots</artifactId>
+      <version>6.7.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.telegram</groupId>
+      <artifactId>telegrambots-meta</artifactId>
       <version>6.7.0</version>
     </dependency>
     <dependency>

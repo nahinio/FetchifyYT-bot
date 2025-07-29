@@ -14,7 +14,7 @@ import java.util.*;
 
 public class MyBot extends TelegramLongPollingBot {
 
-    private final String BOT_TOKEN = "8441326925:AAGLk-ZAg-2dHGPkJBMzTPRRfd67n8yyHEQ";
+    private final String BOT_TOKEN = System.getenv("BOT_TOKEN"); // secure
     private final String BOT_USERNAME = "FetchifyYT_bot";
 
     @Override
@@ -42,7 +42,6 @@ public class MyBot extends TelegramLongPollingBot {
                     InlineKeyboardButton button = new InlineKeyboardButton();
                     button.setText(f.format + " (" + f.filesizeMB + "MB)");
                     button.setCallbackData(text + "|" + f.format_id);
-
                     buttons.add(Collections.singletonList(button));
                 }
 
@@ -162,18 +161,5 @@ public class MyBot extends TelegramLongPollingBot {
     @Override
     public String getBotToken() {
         return BOT_TOKEN;
-    }
-
-    // Inner class for video format info
-    private static class Format {
-        String format_id;
-        String format;
-        long filesizeMB;
-
-        public Format(String format_id, String format, long filesizeMB) {
-            this.format_id = format_id;
-            this.format = format;
-            this.filesizeMB = filesizeMB;
-        }
     }
 }
