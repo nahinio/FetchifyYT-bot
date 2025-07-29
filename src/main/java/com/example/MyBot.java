@@ -1,4 +1,4 @@
-package bot;
+package com.example;
 
 import com.google.gson.*;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;

@@ -1,4 +1,4 @@
-package bot;
+package com.example;
 
 public class Format {
     public String format_id;
