@@ -8,6 +8,7 @@ RUN apt-get update && \
 WORKDIR /app
 COPY . /app
 
-RUN ./mvnw package
+RUN chmod +x mvnw
+RUN apt-get install -y maven && mvn clean package
 
 CMD ["java", "-jar", "target/youtube-telegram-bot-1.0-jar-with-dependencies.jar"]
