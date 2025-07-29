@@ -10,8 +10,10 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.IOException;
 import java.util.*;
-import java.io.*;
 
 public class MyBot extends TelegramLongPollingBot {
 
@@ -25,17 +27,17 @@ public class MyBot extends TelegramLongPollingBot {
             long chatId = update.getMessage().getChatId();
 
             if (text.contains("youtube.com") || text.contains("youtu.be")) {
-                sendMessage(chatId, "🎬 Choose download option:");
+                sendMessage(chatId, "🎬 Choose format:");
 
                 SendMessage msg = new SendMessage();
                 msg.setChatId(chatId);
-                msg.setText("Select format:");
+                msg.setText("Select a download option:");
 
                 InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
                 List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
 
-                buttons.add(Collections.singletonList(createButton("🎥 Best Quality (1080p)", text + "|best")));
-                buttons.add(Collections.singletonList(createButton("📽 720p", text + "|720")));
+                buttons.add(Collections.singletonList(createButton("🔝 Best Quality (≤1080p)", text + "|best")));
+                buttons.add(Collections.singletonList(createButton("720p", text + "|720p")));
                 buttons.add(Collections.singletonList(createButton("🎵 MP3", text + "|mp3")));
 
                 markup.setKeyboard(buttons);
@@ -46,6 +48,7 @@ public class MyBot extends TelegramLongPollingBot {
                 } catch (TelegramApiException e) {
                     e.printStackTrace();
                 }
+
             } else {
                 sendMessage(chatId, "⚠️ Please send a valid YouTube URL.");
             }
@@ -54,27 +57,14 @@ public class MyBot extends TelegramLongPollingBot {
             CallbackQuery query = update.getCallbackQuery();
             String[] data = query.getData().split("\\|");
             String url = data[0];
-            String type = data[1];
+            String option = data[1];
             long chatId = query.getMessage().getChatId();
 
             sendMessage(chatId, "⬇️ Downloading...");
 
-            java.io.File file = null;
-
-            switch (type) {
-                case "best":
-                    file = downloadWithYtDlp(url, "bestvideo[height<=1080]+bestaudio/best[height<=1080]");
-                    break;
-                case "720":
-                    file = downloadWithYtDlp(url, "bestvideo[height=720]+bestaudio/best[height=720]");
-                    break;
-                case "mp3":
-                    file = downloadWithYtDlp(url, "bestaudio", true);
-                    break;
-            }
-
+            java.io.File file = downloadWithYtDlp(url, option);
             if (file == null) {
-                sendMessage(chatId, "❌ Failed to download.");
+                sendMessage(chatId, "❌ Download failed or file too large.");
                 return;
             }
 
@@ -86,57 +76,17 @@ public class MyBot extends TelegramLongPollingBot {
                 execute(sendDoc);
                 file.delete();
             } catch (TelegramApiException e) {
-                sendMessage(chatId, "❌ Could not send file (maybe too large?).");
+                sendMessage(chatId, "❌ Could not send file.");
                 e.printStackTrace();
             }
         }
     }
 
-    private InlineKeyboardButton createButton(String text, String callbackData) {
+    private InlineKeyboardButton createButton(String text, String data) {
         InlineKeyboardButton button = new InlineKeyboardButton();
         button.setText(text);
-        button.setCallbackData(callbackData);
+        button.setCallbackData(data);
         return button;
-    }
-
-    private java.io.File downloadWithYtDlp(String url, String format) {
-        return downloadWithYtDlp(url, format, false);
-    }
-
-    private java.io.File downloadWithYtDlp(String url, String format, boolean isAudioOnly) {
-        try {
-            String output = isAudioOnly ? "audio.%(ext)s" : "video.%(ext)s";
-
-            List<String> command = new ArrayList<>();
-            command.add("yt-dlp");
-            command.add("-f");
-            command.add(format);
-            command.add("-o");
-            command.add(output);
-
-            if (isAudioOnly) {
-                command.add("-x");
-                command.add("--audio-format");
-                command.add("mp3");
-            }
-
-            command.add(url);
-
-            ProcessBuilder pb = new ProcessBuilder(command);
-            pb.redirectErrorStream(true);
-            Process process = pb.start();
-            process.waitFor();
-
-            // Find downloaded file
-            File dir = new File(".");
-            File[] files = dir.listFiles((d, name) -> name.startsWith(isAudioOnly ? "audio" : "video"));
-            if (files != null && files.length > 0) {
-                return files[0];
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
     }
 
     private void sendMessage(long chatId, String text) {
@@ -148,6 +98,48 @@ public class MyBot extends TelegramLongPollingBot {
         } catch (TelegramApiException e) {
             e.printStackTrace();
         }
+    }
+
+    private java.io.File downloadWithYtDlp(String url, String quality) {
+        try {
+            String filename = quality.equals("mp3") ? "audio.%(ext)s" : "video.%(ext)s";
+            List<String> command = new ArrayList<>();
+            command.add("yt-dlp");
+
+            if (quality.equals("mp3")) {
+                command.addAll(List.of("-x", "--audio-format", "mp3"));
+            } else if (quality.equals("720p")) {
+                command.add("-f");
+                command.add("bestvideo[height<=720]+bestaudio/best[height<=720]");
+            } else {
+                command.add("-f");
+                command.add("bestvideo[height<=1080]+bestaudio/best[height<=1080]");
+            }
+
+            command.add("-o");
+            command.add(filename);
+            command.add(url);
+
+            ProcessBuilder pb = new ProcessBuilder(command);
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                System.out.println(line);
+            }
+
+            process.waitFor();
+
+            String outFile = quality.equals("mp3") ? "audio.mp3" : "video.mp4";
+            java.io.File file = new java.io.File(outFile);
+            return file.exists() ? file : null;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
     @Override
